@@ -1,0 +1,82 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+        {
+            "label": "mvn_war_war", // Nome da tarefa
+            "type": "shell", // Tipo de tarefa, executada no shell
+            "command": "mvn war:war", // Comando a ser executado
+            "group": {
+                "kind": "build", // Grupo da tarefa, indicando que é uma tarefa de build
+                "isDefault": true // Indica que esta é a tarefa de build padrão
+            },
+            "presentation": {
+                "reveal": "always" // Sempre mostrar o terminal ao executar a tarefa
+            },
+            "problemMatcher": [] // Não há correspondência de problemas configurada
+        },
+        {
+            "type": "shell", // Tipo de tarefa, executada no shell
+            "isBackground": true, // Indica que a tarefa é executada em segundo plano
+            "problemMatcher": [
+                {
+                    "owner": "quarkus", // Proprietário do matcher de problemas
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src/main/resources/templates" // Localização dos arquivos
+                    ],
+                    "pattern": [
+                        {
+                            "regexp": "\\[(\\d+)\\]\\s(.*):(\\d+):(\\d+)\\s\\-\\s{(.*)}:\\s(.*)$", // Expressão regular para correspondência de problemas
+                            "file": 2,
+                            "line": 3,
+                            "column": 4,
+                            "message": 6
+                        }
+                    ],
+                    "background": {
+                        "activeOnStart": true, // Ativo ao iniciar
+                        "beginsPattern": "^.*Scanning for projects...", // Padrão de início
+                        "endsPattern": "(^.*Quarkus .* started in .*\\.)|(^.* ERROR .* Failed to start)" // Padrão de término
+                    }
+                }
+            ],
+            "group": "build", // Grupo da tarefa, indicando que é uma tarefa de build
+            "label": "quarkus:dev", // Nome da tarefa
+            "command": "./mvnw quarkus:dev ", // Comando a ser executado
+            "windows": {
+                "command": ".\\mvnw.cmd quarkus:dev " // Comando específico para Windows
+            }
+        },
+        {
+            "type": "shell", // Tipo de tarefa, executada no shell
+            "isBackground": true, // Indica que a tarefa é executada em segundo plano
+            "problemMatcher": [
+                {
+                    "owner": "quarkus", // Proprietário do matcher de problemas
+                    "fileLocation": [
+                        "relative",
+                        "${workspaceFolder}/src/main/resources/templates" // Localização dos arquivos
+                    ],
+                    "pattern": [
+                        {
+                            "regexp": "\\[(\\d+)\\]\\s(.*):(\\d+):(\\d+)\\s\\-\\s{(.*)}:\\s(.*)$", // Expressão regular para correspondência de problemas
+                            "file": 2,
+                            "line": 3,
+                            "column": 4,
+                            "message": 6
+                        }
+                    ],
+                    "background": {
+                        "activeOnStart": true // Ativo ao iniciar
+                    }
+                }
+            ],
+            "group": "build", // Grupo da tarefa, indicando que é uma tarefa de build
+            "label": "package -Pnative", // Nome da tarefa
+            "command": "./mvnw package -Pnative ", // Comando a ser executado
+            "windows": {
+                "command": ".\\mvnw.cmd package -Pnative " // Comando específico para Windows
+            }
+        }
+    ]
+}

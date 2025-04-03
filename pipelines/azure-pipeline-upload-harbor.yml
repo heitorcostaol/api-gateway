@@ -1,0 +1,113 @@
+#Pipeline para fazer upload ao servidor Harbor e depois fazer deploy no OCP (OpenShift)
+trigger: 
+- manual
+
+stages:
+- stage: build_maven
+  displayName: 'Build maven'
+  jobs:
+  - job: Job
+    pool:
+      name: Maven Local
+    workspace:
+      clean: all
+    steps:
+    - task: JavaToolInstaller@0
+      inputs:
+        versionSpec: '21'
+        jdkArchitectureOption: 'x64'
+        jdkSourceOption: 'PreInstalled'
+        cleanDestinationDirectory: false
+
+    - task: Maven@3
+      inputs:
+        mavenPomFile: 'pom.xml'
+        javaHomeOption: 'JDKVersion'
+        publishJUnitResults: true
+        testResultsFiles: '**/surefire-reports/TEST-*.xml'
+        goals: 'clean package'
+        options: '-Dquarkus.container-image.build=true'
+    
+    - task: PublishBuildArtifacts@1
+      displayName: 'publica arquivos para download em outro job Pool'
+      inputs:
+        PathtoPublish: '$(Build.SourcesDirectory)/target'
+        artifactName: 'target'
+        publishLocation: 'Container'
+    - script: |
+        echo "Capturando a versão do projeto"
+        VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+        echo "##vso[task.setvariable variable=VERSION;isOutput=true]$VERSION"
+        echo "Versão capturada: $VERSION"
+      name: step_version
+
+- stage: build_image
+  displayName: 'Build docker image'
+  dependsOn: build_maven
+  jobs:
+  - job: Job
+    pool:
+      name: RHEL Docker
+    variables:
+      VERSION: $[stageDependencies.build_maven.Job.outputs['step_version.VERSION']]
+    workspace:
+      clean: all
+    steps:
+   
+    - task: DownloadBuildArtifacts@0
+      displayName: 'download dos artefacos arquivados durante o build maven'
+      inputs:
+        buildType: 'current'
+        downloadType: 'single'
+        downloadPath: '$(Build.SourcesDirectory)'
+        artifactName: 'target'
+ 
+    - task: Docker@2
+      displayName: "login antes de chamar script que faz docker push"
+      inputs:
+         containerRegistry: 'harbor-apm-quarkus'
+         command: login
+ 
+    - task: Bash@3
+      displayName: 'executa docker build'
+      inputs:
+        targetType: 'inline'
+        script: |          
+          docker build -t $(HARBOR_URL):$(VERSION) -f src/main/docker/Dockerfile.jvm .
+          docker push $(HARBOR_URL):$(VERSION)
+        workingDirectory: '$(Build.SourcesDirectory)'
+
+- stage: deploy_DES
+  displayName: Deploy DES OpenShift
+  dependsOn: 
+  - build_maven
+  - build_image
+  jobs:
+  - job: Job
+    pool:
+      name: PROCERGS
+    variables:
+      VERSION: $[stageDependencies.build_maven.Job.outputs['step_version.VERSION']]
+    steps:
+
+    - task: oc-setup@3
+      displayName: 'configura cliente openshift'
+      inputs:
+        connectionType: 'OpenShift Connection Service'
+        openshiftService: 'openshift-apm-quarkus-des'
+
+    - task: oc-cmd@3
+      displayName: 'atualiza a imagem'
+      inputs:
+        connectionType: 'OpenShift Connection Service'
+        openshiftService: 'openshift-apm-quarkus-des'
+        cmd: 'oc tag $(HARBOR_URL):$(VERSION) $(OPENSHIFT_IMAGE_STREAM):latest -n $(OPENSHIFT_NOME_PROJETO)'
+    
+    - task: oc-cmd@3
+      displayName: 'verifica status do deploy'
+      inputs:
+        connectionType: 'OpenShift Connection Service'
+        openshiftService: 'openshift-apm-quarkus-des'
+        cmd: 'oc rollout status deploy/$(OPENSHIFT_NOME_DEPLOYMENT)' 
+  
+

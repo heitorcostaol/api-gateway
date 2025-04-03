@@ -1,0 +1,38 @@
+#Pipeline para fazer deploy diretamente ao OCP (OpenShift)
+trigger: none
+
+pool:
+  name: 'Maven Local'
+  
+steps:
+- task: JavaToolInstaller@0
+  inputs:
+    versionSpec: '21'
+    jdkArchitectureOption: 'x64'
+    jdkSourceOption: 'PreInstalled'
+    cleanDestinationDirectory: false
+
+- script: |
+    echo "Baixando OpenShift CLI (oc)"
+    curl -LO https://mirror.openshift.com/pub/openshift-v4/clients/ocp/stable/openshift-client-linux.tar.gz
+    tar -xvf openshift-client-linux.tar.gz
+    chmod +x oc
+    export PATH=$PATH:$PWD
+    echo "oc CLI adicionado ao PATH temporariamente"
+    oc version
+    echo "Login no OpenShift"
+    oc login $(OPENSHIFT_URL) --username=$(OPENSHIFT_USERNAME) --password=$(OPENSHIFT_PASSWORD) --insecure-skip-tls-verify=true
+    
+    TOKEN=$(oc whoami -t)
+    echo "##vso[task.setvariable variable=TOKEN]$TOKEN"
+    echo "Token Gerado: $TOKEN"
+  displayName: 'Instalar oc e gera token'
+
+- task: Maven@3
+  inputs:
+    mavenPomFile: 'pom.xml'
+    javaHomeOption: 'JDKVersion'
+    publishJUnitResults: true
+    testResultsFiles: '**/surefire-reports/TEST-*.xml'
+    goals: 'install'
+    options: '-Dquarkus.openshift.deploy=true -Dquarkus.openshift.route.expose=true -Dquarkus.kubernetes-client.api-server-url=$(OPENSHIFT_URL) -Dquarkus.kubernetes-client.token=$(TOKEN) -Dquarkus.kubernetes.namespace=procergs-apm-quarkus-des'

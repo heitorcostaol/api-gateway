@@ -1,0 +1,44 @@
+# Template para deploy no kubernetes
+# Sistema: Sys
+# Aplicação: Aplc
+
+parameters:
+- name: Ambiente
+  type: string
+- name: KubernetesServiceEndpoint
+  type: string
+- name: Version
+  type: string
+
+steps:
+- task: DownloadBuildArtifacts@0
+  displayName: 'busca artefato com arquivos yaml de definição do kubernetes'
+  inputs:
+    buildType: 'current'
+    downloadType: 'single'
+    artifactName: 'cd'
+    downloadPath: '$(Pipeline.Workspace)'
+- task: qetza.replacetokens.replacetokens-task.replacetokens@3
+  displayName: 'replace tokens in **/*.yaml'
+  inputs:
+    rootDirectory: '$(Pipeline.Workspace)/cd'
+    targetFiles: '**/*.yaml'
+- task: KubectlInstaller@0
+  displayName: 'instala kubectl'
+- script: |
+   echo "teste1 $(Version)"
+   echo "teste2 ${Version}"
+   echo "teste3 ${{ parameters.Version }}"
+   echo "teste4 $Version"
+   echo "${{ parameters.KubernetesServiceEndpoint }}"
+   sed -i s/%Version%/${{parameters.Version}}/g $(Pipeline.Workspace)/cd/deployment.yaml
+   cat $(Pipeline.Workspace)/cd/deployment.yaml
+  displayName: 'Replace ${{ parameters.Version }} in deployment.yaml'
+- task: Kubernetes@1
+  displayName: 'deployment, service e ingress'
+  inputs:
+    connectionType: 'Kubernetes Service Connection'
+    kubernetesServiceEndpoint: '${{ parameters.KubernetesServiceEndpoint }}'
+    namespace: procergs-apm-des
+    command: 'apply'
+    arguments: '-f $(Pipeline.Workspace)/cd'

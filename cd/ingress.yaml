@@ -1,0 +1,25 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: app-quarkus-k8s
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-cluster-issuer-prod"
+    cert-manager.io/common-name: "*.oci.procergs.rs.gov.br"
+spec:
+  ingressClassName: int-ic
+  tls:
+  - hosts:
+    - "*.oci.procergs.rs.gov.br"
+    - "app-quarkus-k8s.int.kilhml7505.oci.procergs.rs.gov.br"
+    secretName: tls-secret.app-quarkus-k8s.int
+  rules:
+  - host: app-quarkus-k8s.int.kilhml7505.oci.procergs.rs.gov.br
+    http:
+      paths:
+        - path: /
+          pathType: Prefix
+          backend:
+            service:
+              name: app-quarkus-k8s
+              port:
+                number: 8080
